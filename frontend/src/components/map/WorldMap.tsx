@@ -8,21 +8,22 @@ interface Props {
   onSelectRegion: (iso: string) => void
 }
 
-const WORLD_GEOJSON_URL =
-  'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson'
+// Our own API serves GeoJSON with risk_score embedded as a feature property.
+// This is simpler and more reliable than feature-state.
+const RISK_GEOJSON_URL = '/api/v1/map/geojson'
 
-// MapLibre step expression: risk score 0–1 → IPC phase color.
-// coalesce returns -1 when feature-state 'risk' is unset (no data → gray).
+// Step expression: risk_score property 0–1 → IPC phase colour.
+// null / missing → -1 via coalesce → grey (no data).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const RISK_COLOR_EXPRESSION: any = [
+const FILL_COLOR: any = [
   'step',
-  ['coalesce', ['feature-state', 'risk'], -1],
-  '#374151',          // -1   → no data (gray)
-  0.001, '#00AC46',   // 0.001–0.20 → Phase 1 Minimal
-  0.20,  '#CADD00',   // 0.20–0.40  → Phase 2 Stressed
-  0.40,  '#E7B000',   // 0.40–0.60  → Phase 3 Crisis
-  0.60,  '#E35C00',   // 0.60–0.80  → Phase 4 Emergency
-  0.80,  '#C80000',   // 0.80–1.00  → Phase 5 Catastrophe
+  ['coalesce', ['get', 'risk_score'], -1],
+  '#374151',        // -1   no data
+  0.001, '#00AC46', // Phase 1 Minimal
+  0.20,  '#CADD00', // Phase 2 Stressed
+  0.40,  '#E7B000', // Phase 3 Crisis
+  0.60,  '#E35C00', // Phase 4 Emergency
+  0.80,  '#C80000', // Phase 5 Catastrophe
 ]
 
 export function WorldMap({ regions, selectedIso, onSelectRegion }: Props) {
@@ -30,17 +31,7 @@ export function WorldMap({ regions, selectedIso, onSelectRegion }: Props) {
   const mapRef = useRef<maplibregl.Map | null>(null)
   const prevSelectedRef = useRef<string | null>(null)
 
-  // Apply risk scores as numeric feature states whenever regions data changes
-  const applyRiskColors = (map: maplibregl.Map, data: RegionSummary[]) => {
-    data.forEach(({ iso_code, risk_score }) => {
-      map.setFeatureState(
-        { source: 'countries', id: iso_code },
-        { risk: risk_score ?? null },
-      )
-    })
-  }
-
-  // Initialise map once
+  // Init map once
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
 
@@ -70,13 +61,14 @@ export function WorldMap({ regions, selectedIso, onSelectRegion }: Props) {
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left')
 
     map.on('load', () => {
+      // Our own API — GeoJSON with risk_score already in properties
       map.addSource('countries', {
         type: 'geojson',
-        data: WORLD_GEOJSON_URL,
+        data: RISK_GEOJSON_URL,
         promoteId: 'ISO_A3',
       })
 
-      // Fill — colored by numeric risk feature-state via step expression
+      // Fill coloured by risk_score property — no feature-state needed
       map.addLayer({
         id: 'country-fill',
         type: 'fill',
@@ -86,18 +78,17 @@ export function WorldMap({ regions, selectedIso, onSelectRegion }: Props) {
             'case',
             ['boolean', ['feature-state', 'selected'], false],
             '#FFFFFF',
-            RISK_COLOR_EXPRESSION,
+            FILL_COLOR,
           ],
           'fill-opacity': [
             'case',
             ['boolean', ['feature-state', 'selected'], false],
             0.35,
-            0.70,
+            0.75,
           ],
         },
       })
 
-      // Outline
       map.addLayer({
         id: 'country-outline',
         type: 'line',
@@ -118,7 +109,6 @@ export function WorldMap({ regions, selectedIso, onSelectRegion }: Props) {
         },
       })
 
-      // Country name labels (visible on zoom)
       map.addLayer({
         id: 'country-labels',
         type: 'symbol',
@@ -142,41 +132,24 @@ export function WorldMap({ regions, selectedIso, onSelectRegion }: Props) {
       })
       map.on('mouseenter', 'country-fill', () => { map.getCanvas().style.cursor = 'pointer' })
       map.on('mouseleave', 'country-fill', () => { map.getCanvas().style.cursor = '' })
-
-      // Apply any regions data that arrived before the map finished loading
-      if (mapRef.current) {
-        // Access current regions via the closure — will be empty on first load,
-        // the regions effect below handles subsequent updates
-      }
-    })
-
-    // Re-apply colors after GeoJSON finishes loading (sourcedata fires multiple times)
-    map.on('sourcedata', (e) => {
-      if (e.sourceId === 'countries' && (e as any).isSourceLoaded) {
-        const currentRegions = (map as any)._harvestguardRegions as RegionSummary[] | undefined
-        if (currentRegions?.length) applyRiskColors(map, currentRegions)
-      }
     })
 
     mapRef.current = map
     return () => { map.remove(); mapRef.current = null }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Apply risk colors whenever regions data arrives or changes
+  // When regions data refreshes, reload the GeoJSON source so new risk scores appear
   useEffect(() => {
     const map = mapRef.current
-    if (!map) return
-
-    // Stash on map instance so the sourcedata handler can access latest data
-    ;(map as any)._harvestguardRegions = regions
-
-    if (map.isStyleLoaded() && map.getSource('countries')) {
-      applyRiskColors(map, regions)
+    if (!map || !map.isStyleLoaded() || regions.length === 0) return
+    const source = map.getSource('countries') as maplibregl.GeoJSONSource | undefined
+    if (source) {
+      // Add cache-busting param so the browser fetches fresh data from our API
+      source.setData(`${RISK_GEOJSON_URL}?t=${Date.now()}`)
     }
-    // If map/source not ready yet, sourcedata event above will catch it
   }, [regions])
 
-  // Update selected country highlight
+  // Highlight selected country via feature-state (selection only, not colour)
   useEffect(() => {
     const map = mapRef.current
     if (!map || !map.isStyleLoaded() || !map.getSource('countries')) return
