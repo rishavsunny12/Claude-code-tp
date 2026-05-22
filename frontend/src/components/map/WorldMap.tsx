@@ -11,20 +11,18 @@ interface Props {
 const WORLD_GEOJSON_URL =
   'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson'
 
-// MapLibre step expression: risk score 0–1 → IPC phase color
-const RISK_COLOR_EXPRESSION: maplibregl.ExpressionSpecification = [
-  'case',
-  ['==', ['feature-state', 'risk'], null],
-  '#374151',   // no data — gray
-  [
-    'step',
-    ['feature-state', 'risk'],
-    '#00AC46',   // 0.00–0.20  Phase 1 Minimal
-    0.20, '#CADD00',  // 0.20–0.40  Phase 2 Stressed
-    0.40, '#E7B000',  // 0.40–0.60  Phase 3 Crisis
-    0.60, '#E35C00',  // 0.60–0.80  Phase 4 Emergency
-    0.80, '#C80000',  // 0.80–1.00  Phase 5 Catastrophe
-  ],
+// MapLibre step expression: risk score 0–1 → IPC phase color.
+// coalesce returns -1 when feature-state 'risk' is unset (no data → gray).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const RISK_COLOR_EXPRESSION: any = [
+  'step',
+  ['coalesce', ['feature-state', 'risk'], -1],
+  '#374151',          // -1   → no data (gray)
+  0.001, '#00AC46',   // 0.001–0.20 → Phase 1 Minimal
+  0.20,  '#CADD00',   // 0.20–0.40  → Phase 2 Stressed
+  0.40,  '#E7B000',   // 0.40–0.60  → Phase 3 Crisis
+  0.60,  '#E35C00',   // 0.60–0.80  → Phase 4 Emergency
+  0.80,  '#C80000',   // 0.80–1.00  → Phase 5 Catastrophe
 ]
 
 export function WorldMap({ regions, selectedIso, onSelectRegion }: Props) {
