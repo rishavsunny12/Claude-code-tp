@@ -75,9 +75,16 @@ async def get_risk_geojson(db: AsyncSession = Depends(get_db)):
     # Merge risk data into feature properties
     features = []
     for feature in base.get("features", []):
-        iso = feature.get("properties", {}).get("ISO_A3", "")
+        raw_props = feature.get("properties", {})
+        # geo-countries dataset uses ISO3166-1-Alpha-3; older files used ISO_A3
+        iso = raw_props.get("ISO_A3") or raw_props.get("ISO3166-1-Alpha-3") or ""
         risk_data = risk_by_iso.get(iso, {"risk_score": None, "ipc_phase": None, "trend": None})
-        props = {**feature.get("properties", {}), **risk_data}
+        props = {
+            **raw_props,
+            **risk_data,
+            "ISO_A3": iso,
+            "ADMIN": raw_props.get("ADMIN") or raw_props.get("name") or "",
+        }
         features.append({**feature, "properties": props})
 
     return JSONResponse({"type": "FeatureCollection", "features": features})

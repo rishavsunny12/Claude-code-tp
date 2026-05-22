@@ -11,6 +11,11 @@ export async function fetchRegions(): Promise<RegionSummary[]> {
   return data
 }
 
+export async function fetchMapGeoJSON(): Promise<GeoJSON.FeatureCollection> {
+  const { data } = await api.get<GeoJSON.FeatureCollection>('/map/geojson')
+  return data
+}
+
 export async function fetchRegionDetail(iso: string): Promise<RegionDetail> {
   const { data } = await api.get<RegionDetail>(`/regions/${iso}`)
   return data

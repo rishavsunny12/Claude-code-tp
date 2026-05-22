@@ -1,6 +1,7 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useCallback } from 'react'
 import maplibregl from 'maplibre-gl'
 import type { RegionSummary } from '../../types'
+import { fetchMapGeoJSON } from '../../lib/api'
 
 interface Props {
   regions: RegionSummary[]
@@ -8,62 +9,41 @@ interface Props {
   onSelectRegion: (iso: string) => void
 }
 
-// Country boundaries fetched once in JS, then merged with risk scores from our API.
-// This gives us property-based styling (['get', 'risk_score']) which is the most
-// reliable approach in MapLibre — no feature-state timing issues for colors.
-const COUNTRIES_URL =
-  'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson'
-
+// Property-based styling — scores embedded by GET /api/v1/map/geojson.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const FILL_COLOR: any = [
   'step',
-  ['coalesce', ['get', 'risk_score'], -1],
-  '#374151',        // no data
-  0.001, '#00AC46', // Phase 1 Minimal
-  0.20,  '#CADD00', // Phase 2 Stressed
-  0.40,  '#E7B000', // Phase 3 Crisis
-  0.60,  '#E35C00', // Phase 4 Emergency
-  0.80,  '#C80000', // Phase 5 Catastrophe
+  ['coalesce', ['to-number', ['get', 'risk_score']], -1],
+  '#374151',   // no data
+  0, '#00AC46', // Phase 1 Minimal
+  0.20, '#CADD00', // Phase 2 Stressed
+  0.40, '#E7B000', // Phase 3 Crisis
+  0.60, '#E35C00', // Phase 4 Emergency
+  0.80, '#C80000', // Phase 5 Catastrophe
 ]
 
 export function WorldMap({ regions, selectedIso, onSelectRegion }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
+  const mapReadyRef = useRef(false)
   const prevSelectedRef = useRef<string | null>(null)
-  // Both pieces of async data stored in refs so we can merge whenever either arrives
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const baseGeoJsonRef = useRef<any>(null)
-  const regionsRef = useRef<RegionSummary[]>([])
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function mergeAndSetData(geojson: any, regionData: RegionSummary[]) {
-    const map = mapRef.current
-    if (!map || !map.isStyleLoaded()) return
-    const source = map.getSource('countries') as maplibregl.GeoJSONSource | undefined
-    if (!source) return
-
-    const riskByIso: Record<string, number | null> = {}
-    regionData.forEach((r) => { riskByIso[r.iso_code] = r.risk_score ?? null })
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const features = geojson.features.map((f: any) => ({
-      ...f,
-      properties: {
-        ...f.properties,
-        risk_score: riskByIso[f.properties?.ISO_A3] ?? null,
-      },
-    }))
-
-    source.setData({ type: 'FeatureCollection', features })
-  }
-
-  // Keep regionsRef in sync and trigger a merge if the base GeoJSON is already ready
-  useEffect(() => {
-    regionsRef.current = regions
-    if (regions.length > 0 && baseGeoJsonRef.current) {
-      mergeAndSetData(baseGeoJsonRef.current, regions)
+  const loadCountryData = useCallback(async (map: maplibregl.Map) => {
+    try {
+      const geojson = await fetchMapGeoJSON()
+      const source = map.getSource('countries') as maplibregl.GeoJSONSource | undefined
+      source?.setData(geojson)
+    } catch (err) {
+      console.error('Failed to load map GeoJSON:', err)
     }
-  }, [regions]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Refresh map when region scores update
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapReadyRef.current || regions.length === 0) return
+    loadCountryData(map)
+  }, [regions, loadCountryData])
 
   // Init map once
   useEffect(() => {
@@ -96,12 +76,9 @@ export function WorldMap({ regions, selectedIso, onSelectRegion }: Props) {
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left')
 
     map.on('load', () => {
-      // Start with an empty collection — setData() will populate it once both
-      // the base GeoJSON and risk scores are available.
       map.addSource('countries', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
-        // promoteId lets us still use feature-state for selection highlight
         promoteId: 'ISO_A3',
       })
 
@@ -151,7 +128,7 @@ export function WorldMap({ regions, selectedIso, onSelectRegion }: Props) {
         source: 'countries',
         minzoom: 3,
         layout: {
-          'text-field': ['get', 'ADMIN'],
+          'text-field': ['coalesce', ['get', 'ADMIN'], ['get', 'name']],
           'text-size': 11,
           'text-font': ['Open Sans Regular'],
         },
@@ -169,31 +146,22 @@ export function WorldMap({ regions, selectedIso, onSelectRegion }: Props) {
       map.on('mouseenter', 'country-fill', () => { map.getCanvas().style.cursor = 'pointer' })
       map.on('mouseleave', 'country-fill', () => { map.getCanvas().style.cursor = '' })
 
-      // Fetch the base GeoJSON once; merge with whatever risk scores we have
-      fetch(COUNTRIES_URL)
-        .then((r) => r.json())
-        .then((geojson) => {
-          baseGeoJsonRef.current = geojson
-          // Merge immediately if regions data is already available
-          if (regionsRef.current.length > 0) {
-            mergeAndSetData(geojson, regionsRef.current)
-          } else {
-            // Show country outlines with no-data color while regions load
-            const source = map.getSource('countries') as maplibregl.GeoJSONSource
-            source?.setData(geojson)
-          }
-        })
-        .catch((err) => console.error('Failed to load countries GeoJSON:', err))
+      mapReadyRef.current = true
+      loadCountryData(map)
     })
 
     mapRef.current = map
-    return () => { map.remove(); mapRef.current = null }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    return () => {
+      map.remove()
+      mapRef.current = null
+      mapReadyRef.current = false
+    }
+  }, [loadCountryData, onSelectRegion])
 
-  // Highlight selected country via feature-state (selection only, not colour)
+  // Highlight selected country via feature-state (selection only)
   useEffect(() => {
     const map = mapRef.current
-    if (!map || !map.isStyleLoaded() || !map.getSource('countries')) return
+    if (!map || !mapReadyRef.current || !map.getSource('countries')) return
 
     if (prevSelectedRef.current) {
       map.setFeatureState(
