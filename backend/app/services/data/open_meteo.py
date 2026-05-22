@@ -39,6 +39,12 @@ async def fetch_monthly_rainfall(
     end: date,
 ) -> list[MonthlyWeather]:
     """Fetch monthly aggregated rainfall and temperature from Open-Meteo historical archive."""
+    # Open-Meteo archive has a ~2 day lag — cap end at yesterday to avoid 400 errors
+    yesterday = date.today() - timedelta(days=2)
+    end = min(end, yesterday)
+    if start > end:
+        return []
+
     params = {
         "latitude": lat,
         "longitude": lon,
