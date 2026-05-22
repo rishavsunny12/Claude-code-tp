@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import asyncio
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -72,13 +73,36 @@ async def health():
             db_status = "connected"
         except Exception as e:
             db_status = f"error: {e}"
-    return {"status": "ok", "db": db_status, "app": settings.app_name}
+
+    # Count seeded countries and risk scores so you can see if data has loaded
+    from sqlalchemy import func, select
+    from app.models.country import Country
+    from app.models.risk_score import RiskScore
+    async with AsyncSessionLocal() as db:
+        country_count = (await db.execute(select(func.count()).select_from(Country))).scalar()
+        score_count = (await db.execute(select(func.count()).select_from(RiskScore))).scalar()
+
+    return {
+        "status": "ok",
+        "db": db_status,
+        "app": settings.app_name,
+        "countries_seeded": country_count,
+        "risk_scores_computed": score_count,
+    }
 
 
 @app.post("/api/v1/admin/refresh")
 async def trigger_refresh():
-    """Manually trigger a full data refresh (development/admin use)."""
-    from app.utils.ingest import run_full_refresh
-    async with AsyncSessionLocal() as db:
-        stats = await run_full_refresh(db)
-    return {"status": "complete", "stats": stats}
+    """
+    Manually trigger a full data refresh — returns immediately.
+    Refresh runs in the background; follow progress with:
+      docker compose logs -f api
+    """
+    async def _run():
+        from app.utils.ingest import run_full_refresh
+        async with AsyncSessionLocal() as db:
+            stats = await run_full_refresh(db)
+        logger.info("Manual refresh complete: %s", stats)
+
+    asyncio.create_task(_run())
+    return {"status": "started", "message": "Refresh running in background — follow with: docker compose logs -f api"}
