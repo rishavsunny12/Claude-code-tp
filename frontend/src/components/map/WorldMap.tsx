@@ -8,15 +8,16 @@ interface Props {
   onSelectRegion: (iso: string) => void
 }
 
-// Browser loads boundaries directly from CDN — no Docker download needed.
-// This file uses uppercase ISO_A3 and ADMIN as property names.
+// Country boundaries fetched once in JS, then merged with risk scores from our API.
+// This gives us property-based styling (['get', 'risk_score']) which is the most
+// reliable approach in MapLibre — no feature-state timing issues for colors.
 const COUNTRIES_URL =
   'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const FILL_COLOR: any = [
   'step',
-  ['coalesce', ['feature-state', 'risk_score'], -1],
+  ['coalesce', ['get', 'risk_score'], -1],
   '#374151',        // no data
   0.001, '#00AC46', // Phase 1 Minimal
   0.20,  '#CADD00', // Phase 2 Stressed
@@ -29,23 +30,40 @@ export function WorldMap({ regions, selectedIso, onSelectRegion }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const prevSelectedRef = useRef<string | null>(null)
-  // Keep a ref to regions so the sourcedata callback can access the latest value
-  const regionsRef = useRef<RegionSummary[]>(regions)
+  // Both pieces of async data stored in refs so we can merge whenever either arrives
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const baseGeoJsonRef = useRef<any>(null)
+  const regionsRef = useRef<RegionSummary[]>([])
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function mergeAndSetData(geojson: any, regionData: RegionSummary[]) {
+    const map = mapRef.current
+    if (!map || !map.isStyleLoaded()) return
+    const source = map.getSource('countries') as maplibregl.GeoJSONSource | undefined
+    if (!source) return
+
+    const riskByIso: Record<string, number | null> = {}
+    regionData.forEach((r) => { riskByIso[r.iso_code] = r.risk_score ?? null })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const features = geojson.features.map((f: any) => ({
+      ...f,
+      properties: {
+        ...f.properties,
+        risk_score: riskByIso[f.properties?.ISO_A3] ?? null,
+      },
+    }))
+
+    source.setData({ type: 'FeatureCollection', features })
+  }
+
+  // Keep regionsRef in sync and trigger a merge if the base GeoJSON is already ready
   useEffect(() => {
     regionsRef.current = regions
-  }, [regions])
-
-  function applyRiskScores(map: maplibregl.Map, data: RegionSummary[]) {
-    data.forEach((r) => {
-      if (r.risk_score != null) {
-        map.setFeatureState(
-          { source: 'countries', id: r.iso_code },
-          { risk_score: r.risk_score },
-        )
-      }
-    })
-  }
+    if (regions.length > 0 && baseGeoJsonRef.current) {
+      mergeAndSetData(baseGeoJsonRef.current, regions)
+    }
+  }, [regions]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Init map once
   useEffect(() => {
@@ -77,10 +95,12 @@ export function WorldMap({ regions, selectedIso, onSelectRegion }: Props) {
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left')
 
     map.on('load', () => {
+      // Start with an empty collection — setData() will populate it once both
+      // the base GeoJSON and risk scores are available.
       map.addSource('countries', {
         type: 'geojson',
-        data: COUNTRIES_URL,
-        // promoteId tells MapLibre to use ISO_A3 as the feature id for setFeatureState
+        data: { type: 'FeatureCollection', features: [] },
+        // promoteId lets us still use feature-state for selection highlight
         promoteId: 'ISO_A3',
       })
 
@@ -148,28 +168,28 @@ export function WorldMap({ regions, selectedIso, onSelectRegion }: Props) {
       map.on('mouseenter', 'country-fill', () => { map.getCanvas().style.cursor = 'pointer' })
       map.on('mouseleave', 'country-fill', () => { map.getCanvas().style.cursor = '' })
 
-      // Apply risk scores once the GeoJSON source has fully loaded
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      map.on('sourcedata', (e: any) => {
-        if (e.sourceId === 'countries' && e.isSourceLoaded) {
-          applyRiskScores(map, regionsRef.current)
-        }
-      })
+      // Fetch the base GeoJSON once; merge with whatever risk scores we have
+      fetch(COUNTRIES_URL)
+        .then((r) => r.json())
+        .then((geojson) => {
+          baseGeoJsonRef.current = geojson
+          // Merge immediately if regions data is already available
+          if (regionsRef.current.length > 0) {
+            mergeAndSetData(geojson, regionsRef.current)
+          } else {
+            // Show country outlines with no-data color while regions load
+            const source = map.getSource('countries') as maplibregl.GeoJSONSource
+            source?.setData(geojson)
+          }
+        })
+        .catch((err) => console.error('Failed to load countries GeoJSON:', err))
     })
 
     mapRef.current = map
     return () => { map.remove(); mapRef.current = null }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Re-apply risk scores whenever regions data refreshes
-  useEffect(() => {
-    const map = mapRef.current
-    if (!map || !map.isStyleLoaded() || regions.length === 0) return
-    if (!map.isSourceLoaded('countries')) return
-    applyRiskScores(map, regions)
-  }, [regions])
-
-  // Highlight selected country via feature-state
+  // Highlight selected country via feature-state (selection only, not colour)
   useEffect(() => {
     const map = mapRef.current
     if (!map || !map.isStyleLoaded() || !map.getSource('countries')) return
