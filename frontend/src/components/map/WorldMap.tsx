@@ -8,17 +8,16 @@ interface Props {
   onSelectRegion: (iso: string) => void
 }
 
-// Our own API serves GeoJSON with risk_score embedded as a feature property.
-// This is simpler and more reliable than feature-state.
-const RISK_GEOJSON_URL = '/api/v1/map/geojson'
+// Browser loads boundaries directly from CDN — no Docker download needed.
+// This file uses uppercase ISO_A3 and ADMIN as property names.
+const COUNTRIES_URL =
+  'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson'
 
-// Step expression: risk_score property 0–1 → IPC phase colour.
-// null / missing → -1 via coalesce → grey (no data).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const FILL_COLOR: any = [
   'step',
-  ['coalesce', ['get', 'risk_score'], -1],
-  '#374151',        // -1   no data
+  ['coalesce', ['feature-state', 'risk_score'], -1],
+  '#374151',        // no data
   0.001, '#00AC46', // Phase 1 Minimal
   0.20,  '#CADD00', // Phase 2 Stressed
   0.40,  '#E7B000', // Phase 3 Crisis
@@ -30,6 +29,23 @@ export function WorldMap({ regions, selectedIso, onSelectRegion }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const prevSelectedRef = useRef<string | null>(null)
+  // Keep a ref to regions so the sourcedata callback can access the latest value
+  const regionsRef = useRef<RegionSummary[]>(regions)
+
+  useEffect(() => {
+    regionsRef.current = regions
+  }, [regions])
+
+  function applyRiskScores(map: maplibregl.Map, data: RegionSummary[]) {
+    data.forEach((r) => {
+      if (r.risk_score != null) {
+        map.setFeatureState(
+          { source: 'countries', id: r.iso_code },
+          { risk_score: r.risk_score },
+        )
+      }
+    })
+  }
 
   // Init map once
   useEffect(() => {
@@ -61,14 +77,13 @@ export function WorldMap({ regions, selectedIso, onSelectRegion }: Props) {
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left')
 
     map.on('load', () => {
-      // Our own API — GeoJSON with risk_score already in properties
       map.addSource('countries', {
         type: 'geojson',
-        data: RISK_GEOJSON_URL,
+        data: COUNTRIES_URL,
+        // promoteId tells MapLibre to use ISO_A3 as the feature id for setFeatureState
         promoteId: 'ISO_A3',
       })
 
-      // Fill coloured by risk_score property — no feature-state needed
       map.addLayer({
         id: 'country-fill',
         type: 'fill',
@@ -132,24 +147,29 @@ export function WorldMap({ regions, selectedIso, onSelectRegion }: Props) {
       })
       map.on('mouseenter', 'country-fill', () => { map.getCanvas().style.cursor = 'pointer' })
       map.on('mouseleave', 'country-fill', () => { map.getCanvas().style.cursor = '' })
+
+      // Apply risk scores once the GeoJSON source has fully loaded
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      map.on('sourcedata', (e: any) => {
+        if (e.sourceId === 'countries' && e.isSourceLoaded) {
+          applyRiskScores(map, regionsRef.current)
+        }
+      })
     })
 
     mapRef.current = map
     return () => { map.remove(); mapRef.current = null }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When regions data refreshes, reload the GeoJSON source so new risk scores appear
+  // Re-apply risk scores whenever regions data refreshes
   useEffect(() => {
     const map = mapRef.current
     if (!map || !map.isStyleLoaded() || regions.length === 0) return
-    const source = map.getSource('countries') as maplibregl.GeoJSONSource | undefined
-    if (source) {
-      // Add cache-busting param so the browser fetches fresh data from our API
-      source.setData(`${RISK_GEOJSON_URL}?t=${Date.now()}`)
-    }
+    if (!map.isSourceLoaded('countries')) return
+    applyRiskScores(map, regions)
   }, [regions])
 
-  // Highlight selected country via feature-state (selection only, not colour)
+  // Highlight selected country via feature-state
   useEffect(() => {
     const map = mapRef.current
     if (!map || !map.isStyleLoaded() || !map.getSource('countries')) return
