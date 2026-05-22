@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Docker Explained — HarvestGuard Edition</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --green:   #16a34a;
+    --blue:    #2563eb;
+    --orange:  #ea580c;
+    --purple:  #7c3aed;
+    --red:     #dc2626;
+    --teal:    #0d9488;
+    --gray-50: #f9fafb;
+    --gray-100:#f3f4f6;
+    --gray-200:#e5e7eb;
+    --gray-400:#9ca3af;
+    --gray-600:#4b5563;
+    --gray-800:#1f2937;
+    --gray-900:#111827;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: white;
+    color: var(--gray-800);
+    line-height: 1.6;
+    font-size: 14px;
+  }
+
+  /* ── Cover Page ── */
+  .cover {
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f4c2a 100%);
+    color: white;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 60px 40px;
+    page-break-after: always;
+  }
+  .cover-icon { font-size: 80px; margin-bottom: 24px; }
+  .cover h1 { font-size: 42px; font-weight: 800; line-height: 1.2; margin-bottom: 16px; }
+  .cover h1 span { color: #4ade80; }
+  .cover .subtitle { font-size: 20px; color: #94a3b8; margin-bottom: 40px; }
+  .cover .badge {
+    display: inline-block; background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 999px; padding: 8px 20px; font-size: 13px; color: #cbd5e1;
+  }
+
+  /* ── Page layout ── */
+  .page { padding: 48px 56px; max-width: 900px; margin: 0 auto; }
+  .page-break { page-break-before: always; }
+
+  /* ── Section headers ── */
+  .section-num {
+    display: inline-block; width: 32px; height: 32px;
+    background: var(--gray-900); color: white;
+    border-radius: 50%; text-align: center; line-height: 32px;
+    font-weight: 700; font-size: 14px; margin-right: 10px;
+    flex-shrink: 0;
+  }
+  h2 {
+    font-size: 26px; font-weight: 800; color: var(--gray-900);
+    margin-bottom: 8px; margin-top: 40px; display: flex; align-items: center;
+  }
+  h2:first-child { margin-top: 0; }
+  h3 { font-size: 17px; font-weight: 700; color: var(--gray-800); margin: 24px 0 8px; }
+  h4 { font-size: 14px; font-weight: 600; color: var(--gray-600); margin: 16px 0 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+  p { margin-bottom: 12px; color: var(--gray-600); }
+  .lead { font-size: 16px; color: var(--gray-600); margin-bottom: 24px; }
+
+  /* ── Analogy box ── */
+  .analogy {
+    background: linear-gradient(135deg, #eff6ff, #f0fdf4);
+    border-left: 4px solid var(--blue);
+    border-radius: 0 12px 12px 0;
+    padding: 20px 24px;
+    margin: 20px 0;
+  }
+  .analogy-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--blue); margin-bottom: 8px; }
+  .analogy p { margin: 0; color: var(--gray-700); }
+
+  /* ── Service cards ── */
+  .services-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
+  .service-card {
+    border: 2px solid;
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .service-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 4px;
+  }
+  .service-card.postgres  { border-color: #bfdbfe; }
+  .service-card.postgres::before  { background: var(--blue); }
+  .service-card.redis     { border-color: #fed7aa; }
+  .service-card.redis::before     { background: var(--orange); }
+  .service-card.api       { border-color: #bbf7d0; }
+  .service-card.api::before       { background: var(--green); }
+  .service-card.frontend  { border-color: #e9d5ff; }
+  .service-card.frontend::before  { background: var(--purple); }
+
+  .service-icon { font-size: 28px; margin-bottom: 8px; }
+  .service-name { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .service-card.postgres  .service-name { color: var(--blue); }
+  .service-card.redis     .service-name { color: var(--orange); }
+  .service-card.api       .service-name { color: var(--green); }
+  .service-card.frontend  .service-name { color: var(--purple); }
+  .service-tag { display: inline-block; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; padding: 2px 8px; border-radius: 999px; margin-bottom: 10px; }
+  .service-card.postgres  .service-tag { background: #dbeafe; color: var(--blue); }
+  .service-card.redis     .service-tag { background: #ffedd5; color: var(--orange); }
+  .service-card.api       .service-tag { background: #dcfce7; color: var(--green); }
+  .service-card.frontend  .service-tag { background: #f3e8ff; color: var(--purple); }
+  .service-card p { font-size: 13px; margin: 0; color: var(--gray-600); }
+
+  /* ── Code blocks ── */
+  .code-block {
+    background: #0f172a;
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .code-block .filename {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: #64748b;
+    margin-bottom: 12px; padding-bottom: 8px;
+    border-bottom: 1px solid #1e293b;
+  }
+  .code-block pre {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; line-height: 1.8;
+    color: #e2e8f0; white-space: pre-wrap;
+  }
+  .c-green  { color: #4ade80; }
+  .c-blue   { color: #60a5fa; }
+  .c-yellow { color: #fbbf24; }
+  .c-orange { color: #fb923c; }
+  .c-gray   { color: #64748b; }
+  .c-pink   { color: #f472b6; }
+  .c-teal   { color: #2dd4bf; }
+  .c-white  { color: #f8fafc; }
+
+  /* ── Callout ── */
+  .callout {
+    border-radius: 10px; padding: 16px 20px; margin: 16px 0;
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .callout.tip   { background: #f0fdf4; border: 1px solid #bbf7d0; }
+  .callout.warn  { background: #fffbeb; border: 1px solid #fde68a; }
+  .callout.info  { background: #eff6ff; border: 1px solid #bfdbfe; }
+  .callout-icon  { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .callout p     { margin: 0; font-size: 13px; }
+  .callout.tip p { color: #166534; }
+  .callout.warn p { color: #92400e; }
+  .callout.info p { color: #1e40af; }
+
+  /* ── Flow diagram ── */
+  .flow {
+    display: flex; align-items: center; justify-content: center;
+    flex-wrap: wrap; gap: 8px; margin: 24px 0; padding: 24px;
+    background: var(--gray-50); border-radius: 12px;
+    border: 1px solid var(--gray-200);
+  }
+  .flow-box {
+    border-radius: 8px; padding: 10px 16px; text-align: center;
+    font-size: 12px; font-weight: 600; min-width: 100px;
+  }
+  .flow-box .icon { font-size: 20px; display: block; margin-bottom: 4px; }
+  .flow-box.browser { background: #f3e8ff; color: var(--purple); border: 2px solid #e9d5ff; }
+  .flow-box.nginx   { background: #f0fdf4; color: var(--green); border: 2px solid #bbf7d0; }
+  .flow-box.api     { background: #eff6ff; color: var(--blue); border: 2px solid #bfdbfe; }
+  .flow-box.db      { background: #fff7ed; color: var(--orange); border: 2px solid #fed7aa; }
+  .flow-box.redis   { background: #fef2f2; color: var(--red); border: 2px solid #fecaca; }
+  .flow-box.ollama  { background: #f5f3ff; color: var(--purple); border: 2px solid #ddd6fe; }
+  .flow-arrow { font-size: 18px; color: var(--gray-400); font-weight: 300; }
+
+  /* ── Commands table ── */
+  .cmd-table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+  .cmd-table th {
+    background: var(--gray-900); color: white;
+    padding: 10px 16px; text-align: left; font-size: 12px;
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .cmd-table th:first-child { border-radius: 8px 0 0 0; }
+  .cmd-table th:last-child { border-radius: 0 8px 0 0; }
+  .cmd-table td { padding: 10px 16px; border-bottom: 1px solid var(--gray-200); vertical-align: top; font-size: 13px; }
+  .cmd-table tr:last-child td { border-bottom: none; }
+  .cmd-table tr:nth-child(even) td { background: var(--gray-50); }
+  .cmd-table code { font-family: 'JetBrains Mono', monospace; font-size: 11px; background: var(--gray-100); padding: 2px 6px; border-radius: 4px; color: var(--gray-800); }
+
+  /* ── Concept card ── */
+  .concept-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 20px 0; }
+  .concept-card { border-radius: 10px; padding: 16px; text-align: center; }
+  .concept-card .emoji { font-size: 28px; display: block; margin-bottom: 8px; }
+  .concept-card .title { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+  .concept-card .desc  { font-size: 12px; color: var(--gray-500); }
+  .concept-card.image  { background: #eff6ff; }
+  .concept-card.image .title { color: var(--blue); }
+  .concept-card.container { background: #f0fdf4; }
+  .concept-card.container .title { color: var(--green); }
+  .concept-card.volume { background: #fff7ed; }
+  .concept-card.volume .title { color: var(--orange); }
+
+  /* ── Inline code ── */
+  code { font-family: 'JetBrains Mono', monospace; font-size: 12px; background: var(--gray-100); padding: 2px 6px; border-radius: 4px; color: var(--gray-800); }
+
+  /* ── Divider ── */
+  .divider { border: none; border-top: 2px solid var(--gray-100); margin: 32px 0; }
+
+  /* ── Footer ── */
+  .footer { margin-top: 48px; padding-top: 20px; border-top: 2px solid var(--gray-100); text-align: center; color: var(--gray-400); font-size: 12px; }
+
+  /* ── Print ── */
+  @media print {
+    .cover { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .service-card, .code-block, .callout, .analogy, .concept-card, .flow-box, .flow {
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+    .page-break { page-break-before: always; }
+    body { font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════
+     COVER PAGE
+═══════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-icon">🐳</div>
+  <h1>Docker Explained<br/><span>HarvestGuard Edition</span></h1>
+  <p class="subtitle">A plain-English guide to Docker using your<br/>food insecurity early warning platform as the example</p>
+  <span class="badge">🌾 Built for HarvestGuard · 2026</span>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 1 — WHAT IS DOCKER?
+═══════════════════════════════════════════════ -->
+<div class="page">
+  <h2><span class="section-num">1</span>What is Docker, and why do we need it?</h2>
+  <p class="lead">Imagine you spend days setting up your app on your laptop — installing Python, PostgreSQL, Node.js, all the right versions. Then a friend tries to run it and nothing works because their machine is set up differently. Docker solves this.</p>
+
+  <div class="analogy">
+    <div class="analogy-label">🚢 The Shipping Container Analogy</div>
+    <p>Before shipping containers were invented, every ship had to figure out how to load each item differently — furniture, bananas, machinery. It was chaos. Then someone invented the standardized shipping container: one box, same size, fits any ship, any truck, any crane.<br/><br/>
+    Docker does the same thing for software. You put your app inside a <strong>container</strong> — it has everything it needs (Python, libraries, configs) packed inside. That container runs identically on your laptop, your teammate's Mac, or a server in the cloud.</p>
+  </div>
+
+  <h3>The 3 core concepts you need to know</h3>
+  <div class="concept-grid">
+    <div class="concept-card image">
+      <span class="emoji">📦</span>
+      <div class="title">Image</div>
+      <div class="desc">A recipe / blueprint. Like an ISO file — a snapshot of the app and everything it needs. Read-only. Built once, used many times.</div>
+    </div>
+    <div class="concept-card container">
+      <span class="emoji">🏃</span>
+      <div class="title">Container</div>
+      <div class="desc">A running instance of an image. Like a house built from blueprints. You can start, stop, and delete containers freely.</div>
+    </div>
+    <div class="concept-card volume">
+      <span class="emoji">💾</span>
+      <div class="title">Volume</div>
+      <div class="desc">Persistent storage that survives container restarts. Like an external hard drive plugged into the container.</div>
+    </div>
+  </div>
+
+  <div class="callout tip">
+    <div class="callout-icon">💡</div>
+    <p><strong>Key insight:</strong> An Image is the recipe. A Container is the meal. You can cook (run) many meals from the same recipe. If a meal goes wrong, throw it away and cook a fresh one — the recipe is untouched.</p>
+  </div>
+
+  <h3>What is Docker Compose?</h3>
+  <p>HarvestGuard isn't one app — it's <em>four</em> apps that need to work together (database, cache, backend API, frontend). Docker Compose lets you define and start all of them with a single command: <code>docker compose up</code>.</p>
+  <p>Think of it as a conductor that starts the whole orchestra at once, in the right order, making sure everyone can hear each other.</p>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 2 — YOUR 4 SERVICES EXPLAINED
+═══════════════════════════════════════════════ -->
+<div class="page page-break">
+  <h2><span class="section-num">2</span>Your 4 services — what each one does</h2>
+  <p class="lead">Open your <code>docker-compose.yml</code>. You have 4 services. Here's what each one is, why HarvestGuard needs it, and what would break without it.</p>
+
+  <div class="services-grid">
+    <div class="service-card postgres">
+      <div class="service-icon">🐘</div>
+      <div class="service-name">PostgreSQL + PostGIS</div>
+      <span class="service-tag">Database</span>
+      <p>Stores all your data permanently: countries, NDVI readings, rainfall history, risk scores, alerts. PostGIS is an extension that adds geospatial superpowers — it understands latitude, longitude, and country shapes.</p>
+    </div>
+    <div class="service-card redis">
+      <div class="service-icon">⚡</div>
+      <div class="service-name">Redis</div>
+      <span class="service-tag">Cache</span>
+      <p>An ultra-fast in-memory store. Used for caching NASA and WFP API responses so you don't hammer external APIs on every request. Like a notepad for answers you already looked up.</p>
+    </div>
+    <div class="service-card api">
+      <div class="service-icon">🐍</div>
+      <div class="service-name">FastAPI (Python)</div>
+      <span class="service-tag">Backend</span>
+      <p>The brain of HarvestGuard. Fetches satellite data, runs risk scoring, calls Ollama for AI assessments, and serves all the data to the frontend via REST API + streaming.</p>
+    </div>
+    <div class="service-card frontend">
+      <div class="service-icon">⚛️</div>
+      <div class="service-name">React + Nginx</div>
+      <span class="service-tag">Frontend</span>
+      <p>The interactive world map you see in your browser. Nginx is a tiny web server that serves the React app files and also forwards API requests to FastAPI (so you only need one address).</p>
+    </div>
+  </div>
+
+  <h3>Why can't they all be one app?</h3>
+  <div class="analogy">
+    <div class="analogy-label">🏢 The Office Building Analogy</div>
+    <p>Think of HarvestGuard as an office building. The <strong>database (PostgreSQL)</strong> is the filing room — stores everything permanently. <strong>Redis</strong> is the receptionist's sticky notes — quick lookups for common questions. The <strong>API (FastAPI)</strong> is the actual employees doing the work. The <strong>frontend (React)</strong> is the lobby — what visitors (your browser) interact with.<br/><br/>
+    You wouldn't hire one person to do all four jobs simultaneously. Each service does one thing well, and they talk to each other.</p>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 3 — DOCKER-COMPOSE.YML EXPLAINED
+═══════════════════════════════════════════════ -->
+<div class="page page-break">
+  <h2><span class="section-num">3</span>Your docker-compose.yml — line by line</h2>
+  <p class="lead">Let's walk through every line of your actual config file and explain what it does in plain English.</p>
+
+  <div class="code-block">
+    <div class="filename">📄 docker-compose.yml</div>
+    <pre><span class="c-blue">services:</span>                       <span class="c-gray"># "Here are the apps I want to run"</span>
+
+  <span class="c-green">postgres:</span>                       <span class="c-gray"># Name we give this service</span>
+    <span class="c-yellow">image: postgis/postgis:16-3.4</span>  <span class="c-gray"># Use this pre-built image from Docker Hub</span>
+    <span class="c-yellow">environment:</span>                   <span class="c-gray"># Environment variables (like settings)</span>
+      <span class="c-orange">POSTGRES_USER: harvestguard</span>   <span class="c-gray"># Create a DB user named harvestguard</span>
+      <span class="c-orange">POSTGRES_PASSWORD: secret</span>     <span class="c-gray"># With this password</span>
+      <span class="c-orange">POSTGRES_DB: harvestguard</span>     <span class="c-gray"># Create a database named harvestguard</span>
+    <span class="c-yellow">volumes:</span>
+      <span class="c-orange">- postgres_data:/var/lib/postgresql/data</span>  <span class="c-gray"># Save DB files here permanently</span>
+    <span class="c-yellow">ports:</span>
+      <span class="c-orange">- "5432:5432"</span>                  <span class="c-gray"># Expose port 5432 (so you can connect externally)</span>
+    <span class="c-yellow">healthcheck:</span>                   <span class="c-gray"># Tells Docker "is this service ready yet?"</span>
+      <span class="c-orange">test: ["CMD-SHELL", "pg_isready -U harvestguard"]</span>
+
+  <span class="c-green">redis:</span>
+    <span class="c-yellow">image: redis:7-alpine</span>          <span class="c-gray"># Alpine = tiny version (5MB vs 100MB)</span>
+    <span class="c-yellow">ports:</span>
+      <span class="c-orange">- "6379:6379"</span></pre>
+  </div>
+
+  <div class="callout info">
+    <div class="callout-icon">📖</div>
+    <p><strong>About ports <code>"5432:5432"</code>:</strong> This is <code>"YOUR_COMPUTER:CONTAINER"</code>. Port 5432 inside the container is mapped to port 5432 on your laptop. So <code>localhost:5432</code> on your machine reaches the database inside Docker. If you wrote <code>"9999:5432"</code>, you'd connect via <code>localhost:9999</code> instead.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="filename">📄 docker-compose.yml (continued)</div>
+    <pre>  <span class="c-green">api:</span>
+    <span class="c-yellow">build:</span>
+      <span class="c-orange">context: ./backend</span>            <span class="c-gray"># BUILD an image from the ./backend folder</span>
+      <span class="c-orange">dockerfile: Dockerfile</span>        <span class="c-gray"># Using these instructions</span>
+    <span class="c-yellow">env_file: .env</span>                 <span class="c-gray"># Load secrets from your .env file</span>
+    <span class="c-yellow">environment:</span>
+      <span class="c-orange">DATABASE_URL: postgresql+asyncpg://harvestguard:secret@postgres:5432/harvestguard</span>
+      <span class="c-gray">                               # "postgres" = the service name above (auto DNS!)</span>
+    <span class="c-yellow">ports:</span>
+      <span class="c-orange">- "8000:8000"</span>                  <span class="c-gray"># API available at localhost:8000</span>
+    <span class="c-yellow">depends_on:</span>
+      <span class="c-orange">postgres:</span>
+        <span class="c-pink">condition: service_healthy</span>   <span class="c-gray"># Wait for postgres to be ready FIRST</span>
+    <span class="c-yellow">command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload</span>
+
+  <span class="c-green">frontend:</span>
+    <span class="c-yellow">build:</span>
+      <span class="c-orange">context: ./frontend</span>
+    <span class="c-yellow">ports:</span>
+      <span class="c-orange">- "3000:80"</span>                    <span class="c-gray"># Your port 3000 → nginx port 80 inside</span>
+    <span class="c-yellow">depends_on:</span>
+      <span class="c-orange">- api</span>                          <span class="c-gray"># Start after api is running</span>
+
+<span class="c-blue">volumes:</span>
+  <span class="c-green">postgres_data:</span>                   <span class="c-gray"># Named volume — Docker manages this storage</span>
+                                   <span class="c-gray"># Data survives "docker compose down"</span></pre>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 4 — HOW THEY TALK TO EACH OTHER
+═══════════════════════════════════════════════ -->
+<div class="page page-break">
+  <h2><span class="section-num">4</span>How the services talk to each other</h2>
+  <p class="lead">Docker Compose creates a private network between all your services. They can reach each other using the <strong>service name as a hostname</strong> — no IP addresses needed.</p>
+
+  <div class="flow">
+    <div class="flow-box browser">
+      <span class="icon">🌐</span>
+      Your Browser<br/>localhost:3000
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box nginx">
+      <span class="icon">⚛️</span>
+      Frontend (nginx)<br/>port 80
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box api">
+      <span class="icon">🐍</span>
+      FastAPI<br/>port 8000
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box db">
+      <span class="icon">🐘</span>
+      Postgres<br/>port 5432
+    </div>
+    <br/>
+    <div style="width:100%; display:flex; justify-content:center; gap:8px; margin-top:8px;">
+      <div style="flex:3"></div>
+      <div class="flow-arrow" style="margin-top: 8px;">↕</div>
+      <div class="flow-box redis" style="min-width:90px;">
+        <span class="icon">⚡</span>
+        Redis<br/>port 6379
+      </div>
+      <div class="flow-arrow" style="margin-top: 8px;">↕</div>
+      <div class="flow-box ollama" style="min-width:90px;">
+        <span class="icon">🤖</span>
+        Ollama<br/>(your PC)
+      </div>
+    </div>
+  </div>
+
+  <h3>The magic of service name DNS</h3>
+  <p>Inside Docker's network, services find each other by name. Look at your <code>DATABASE_URL</code>:</p>
+
+  <div class="code-block">
+    <pre><span class="c-gray"># This URL in your API container:</span>
+<span class="c-green">DATABASE_URL</span>=postgresql+asyncpg://<span class="c-yellow">harvestguard</span>:<span class="c-orange">secret</span>@<span class="c-pink">postgres</span>:<span class="c-blue">5432</span>/harvestguard
+<span class="c-gray">#                                  user        password  ↑hostname  port</span>
+<span class="c-gray">#                                                        = service name in compose!</span></pre>
+  </div>
+
+  <p>The word <code>postgres</code> in that URL isn't a real hostname you set up — Docker automatically makes it resolve to the postgres container. Same with <code>redis</code>. They just work.</p>
+
+  <h3>Why Ollama is special (outside Docker)</h3>
+  <p>Ollama runs on your Windows machine, <em>not</em> inside Docker. So the API container can't use <code>localhost</code> to reach it — from inside a container, <code>localhost</code> means the container itself, not your PC.</p>
+
+  <div class="code-block">
+    <pre><span class="c-gray"># WRONG — "localhost" inside Docker = the container itself</span>
+<span class="c-red">LOCAL_LLM_BASE_URL=http://localhost:11434/v1</span>
+
+<span class="c-gray"># CORRECT — "host.docker.internal" = your actual Windows/Mac machine</span>
+<span class="c-green">LOCAL_LLM_BASE_URL=http://host.docker.internal:11434/v1</span></pre>
+  </div>
+
+  <div class="callout warn">
+    <div class="callout-icon">⚠️</div>
+    <p><strong>This is the #1 Docker gotcha on Windows/Mac.</strong> Always use <code>host.docker.internal</code> when a Docker container needs to reach a service running on your actual machine (like Ollama, a local dev server, etc.).</p>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 5 — DOCKERFILE EXPLAINED
+═══════════════════════════════════════════════ -->
+<div class="page page-break">
+  <h2><span class="section-num">5</span>What is a Dockerfile?</h2>
+  <p class="lead">Some services use a pre-built image from the internet (like <code>redis:7-alpine</code>). Others — your API and frontend — get built from a <strong>Dockerfile</strong>: a recipe that tells Docker how to create a custom image for your specific app.</p>
+
+  <div class="analogy">
+    <div class="analogy-label">👨‍🍳 Recipe analogy</div>
+    <p>A Dockerfile is like a cooking recipe. Each line is an instruction: "Start with this base ingredient, add these tools, copy in these files, run this command to install dependencies, then set the default action when you serve it."</p>
+  </div>
+
+  <h3>Your backend Dockerfile</h3>
+
+  <div class="code-block">
+    <div class="filename">📄 backend/Dockerfile</div>
+    <pre><span class="c-green">FROM</span> python:3.11-slim
+<span class="c-gray"># Start from an official Python 3.11 image (pre-built by Docker)
+# "slim" = stripped down version — smaller, faster to download</span>
+
+<span class="c-green">WORKDIR</span> /app
+<span class="c-gray"># All following commands run from the /app folder inside the container</span>
+
+<span class="c-green">RUN</span> apt-get update && apt-get install -y \
+    gdal-bin libgdal-dev libgeos-dev gcc
+<span class="c-gray"># Install system libraries that geopandas and rasterio need
+# (These handle the geospatial/satellite data processing)</span>
+
+<span class="c-green">COPY</span> pyproject.toml .
+<span class="c-green">RUN</span> pip install --no-cache-dir -e .
+<span class="c-gray"># Copy your dependency list, then install all Python packages
+# Separated from copying your code so Docker can CACHE this layer
+# (If you only change code, Docker reuses the installed packages)</span>
+
+<span class="c-green">COPY</span> app/ ./app/
+<span class="c-gray"># Copy your actual Python source code into the container</span>
+
+<span class="c-green">CMD</span> ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+<span class="c-gray"># Default command when the container starts = run the FastAPI server</span></pre>
+  </div>
+
+  <h3>The caching trick (why order matters in Dockerfiles)</h3>
+  <p>Docker builds images in layers. Each instruction creates a layer, and Docker <strong>caches layers</strong>. If a layer hasn't changed, Docker reuses it instantly instead of rebuilding.</p>
+
+  <div class="code-block">
+    <pre><span class="c-gray"># SMART ORDER (dependencies before code):</span>
+<span class="c-green">COPY pyproject.toml .</span>    <span class="c-gray">← layer 1: rarely changes → cached most of the time</span>
+<span class="c-green">RUN pip install ...</span>     <span class="c-gray">← layer 2: rarely changes → cached (saves minutes!)</span>
+<span class="c-green">COPY app/ ./app/</span>        <span class="c-gray">← layer 3: changes often  → rebuilt, but fast</span>
+
+<span class="c-gray"># WRONG ORDER (code before dependencies):</span>
+<span class="c-red">COPY app/ ./app/</span>        <span class="c-gray">← changes every save → invalidates ALL layers below</span>
+<span class="c-red">RUN pip install ...</span>     <span class="c-gray">← re-runs every time  → wastes 2-5 minutes every build!</span></pre>
+  </div>
+
+  <div class="callout tip">
+    <div class="callout-icon">💡</div>
+    <p><strong>Rule of thumb:</strong> Put things that change rarely at the top of your Dockerfile, things that change often at the bottom. This keeps builds fast.</p>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 6 — VOLUMES
+═══════════════════════════════════════════════ -->
+<div class="page page-break">
+  <h2><span class="section-num">6</span>Volumes — keeping your data safe</h2>
+  <p class="lead">Containers are designed to be <em>disposable</em>. If you delete a container, everything inside it vanishes. But you don't want your database wiped every time you restart. That's what volumes are for.</p>
+
+  <div class="analogy">
+    <div class="analogy-label">🔌 External hard drive analogy</div>
+    <p>Imagine your container is a laptop. If you throw the laptop away and get a new one, everything on the internal drive is gone. But if your data was saved to an <strong>external hard drive</strong> (a volume), you just plug that drive into the new laptop and all your data is there.</p>
+  </div>
+
+  <div class="code-block">
+    <div class="filename">📄 docker-compose.yml</div>
+    <pre><span class="c-green">postgres:</span>
+  <span class="c-yellow">volumes:</span>
+    <span class="c-orange">- postgres_data:/var/lib/postgresql/data</span>
+    <span class="c-gray">#   ↑ volume name      ↑ path inside the container where Postgres saves data</span>
+
+<span class="c-blue">volumes:</span>
+  <span class="c-green">postgres_data:</span>     <span class="c-gray"># Docker creates and manages this storage on your machine</span></pre>
+  </div>
+
+  <h3>Three scenarios with volumes</h3>
+
+  <table class="cmd-table">
+    <tr>
+      <th>Action</th>
+      <th>What happens to your data</th>
+    </tr>
+    <tr>
+      <td><code>docker compose down</code></td>
+      <td>✅ <strong>Data is safe.</strong> Volume persists. Next <code>up</code> picks right up.</td>
+    </tr>
+    <tr>
+      <td><code>docker compose restart</code></td>
+      <td>✅ <strong>Data is safe.</strong> Container restarts, volume still attached.</td>
+    </tr>
+    <tr>
+      <td><code>docker compose down -v</code></td>
+      <td>⚠️ <strong>Data is DELETED.</strong> The <code>-v</code> flag removes volumes. Use to start completely fresh.</td>
+    </tr>
+  </table>
+
+  <div class="callout warn">
+    <div class="callout-icon">⚠️</div>
+    <p>Never run <code>docker compose down -v</code> unless you want to wipe your database completely and start over. The plain <code>docker compose down</code> is safe.</p>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 7 — HEALTH CHECKS & DEPENDS_ON
+═══════════════════════════════════════════════ -->
+<div class="page page-break">
+  <h2><span class="section-num">7</span>Health checks & startup order</h2>
+  <p class="lead">Your services start simultaneously by default — but your API needs the database to be <em>actually ready</em> before connecting. Health checks solve this.</p>
+
+  <div class="analogy">
+    <div class="analogy-label">🍳 Restaurant analogy</div>
+    <p>Imagine a restaurant where the waiter (API) needs the kitchen (database) ready before they can take orders. Without health checks, the waiter starts walking around as soon as they arrive — even if the kitchen is still warming up and the chef isn't ready. <code>healthcheck</code> + <code>depends_on: condition: service_healthy</code> makes the waiter wait in the back until the kitchen actually signals "we're ready!"</p>
+  </div>
+
+  <div class="code-block">
+    <div class="filename">📄 docker-compose.yml</div>
+    <pre><span class="c-green">postgres:</span>
+  <span class="c-yellow">healthcheck:</span>
+    <span class="c-orange">test: ["CMD-SHELL", "pg_isready -U harvestguard"]</span>
+    <span class="c-gray">#    ↑ Run this command inside the container every 10s</span>
+    <span class="c-gray">#      pg_isready exits 0 (success) when Postgres is accepting connections</span>
+    <span class="c-orange">interval: 10s</span>   <span class="c-gray"># Check every 10 seconds</span>
+    <span class="c-orange">timeout: 5s</span>     <span class="c-gray"># Give up if no response in 5 seconds</span>
+    <span class="c-orange">retries: 5</span>      <span class="c-gray"># Try 5 times before marking as unhealthy</span>
+
+<span class="c-green">api:</span>
+  <span class="c-yellow">depends_on:</span>
+    <span class="c-orange">postgres:</span>
+      <span class="c-pink">condition: service_healthy</span>  <span class="c-gray"># Don't start API until postgres passes healthcheck</span>
+    <span class="c-orange">redis:</span>
+      <span class="c-pink">condition: service_healthy</span></pre>
+  </div>
+
+  <h3>Startup sequence in your project</h3>
+
+  <div style="background:#f9fafb; border-radius:12px; padding:24px; margin:20px 0; border:1px solid #e5e7eb;">
+    <div style="display:flex; align-items:flex-start; gap:16px; margin-bottom:16px;">
+      <div style="background:#2563eb; color:white; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-weight:700; flex-shrink:0;">1</div>
+      <div><strong>PostgreSQL + Redis start simultaneously</strong><br/><span style="color:#6b7280; font-size:13px;">Docker pulls the images (first time only) and starts both containers</span></div>
+    </div>
+    <div style="display:flex; align-items:flex-start; gap:16px; margin-bottom:16px;">
+      <div style="background:#16a34a; color:white; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-weight:700; flex-shrink:0;">2</div>
+      <div><strong>Health checks run every 10 seconds</strong><br/><span style="color:#6b7280; font-size:13px;">Docker checks if Postgres is accepting connections. Redis does the same with <code>redis-cli ping</code>.</span></div>
+    </div>
+    <div style="display:flex; align-items:flex-start; gap:16px; margin-bottom:16px;">
+      <div style="background:#ea580c; color:white; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-weight:700; flex-shrink:0;">3</div>
+      <div><strong>FastAPI starts</strong> (only after both are healthy)<br/><span style="color:#6b7280; font-size:13px;">Creates database tables, seeds 60 countries, starts the scheduler</span></div>
+    </div>
+    <div style="display:flex; align-items:flex-start; gap:16px;">
+      <div style="background:#7c3aed; color:white; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; font-weight:700; flex-shrink:0;">4</div>
+      <div><strong>React frontend starts</strong> (after API)<br/><span style="color:#6b7280; font-size:13px;">Nginx serves the built React app at localhost:3000</span></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 8 — COMMANDS CHEAT SHEET
+═══════════════════════════════════════════════ -->
+<div class="page page-break">
+  <h2><span class="section-num">8</span>Commands you'll use every day</h2>
+  <p class="lead">You don't need to memorize Docker internals — just these commands will cover 95% of what you need.</p>
+
+  <h3>Starting & stopping</h3>
+  <table class="cmd-table">
+    <tr><th>Command</th><th>What it does</th></tr>
+    <tr>
+      <td><code>docker compose up --build</code></td>
+      <td>Start everything, rebuild images first. Use this after changing Python/JS code.</td>
+    </tr>
+    <tr>
+      <td><code>docker compose up</code></td>
+      <td>Start everything using existing images (faster if nothing changed).</td>
+    </tr>
+    <tr>
+      <td><code>docker compose down</code></td>
+      <td>Stop and remove containers. Your database data is safe (volume preserved).</td>
+    </tr>
+    <tr>
+      <td><code>docker compose down -v</code></td>
+      <td>⚠️ Stop everything AND delete all data. Full reset.</td>
+    </tr>
+    <tr>
+      <td><code>docker compose restart api</code></td>
+      <td>Restart just the API service without touching others.</td>
+    </tr>
+  </table>
+
+  <h3>Watching what's happening</h3>
+  <table class="cmd-table">
+    <tr><th>Command</th><th>What it does</th></tr>
+    <tr>
+      <td><code>docker compose logs -f</code></td>
+      <td>Stream live logs from all services (Ctrl+C to stop).</td>
+    </tr>
+    <tr>
+      <td><code>docker compose logs -f api</code></td>
+      <td>Stream logs from just the API service.</td>
+    </tr>
+    <tr>
+      <td><code>docker compose ps</code></td>
+      <td>List all running containers and their status.</td>
+    </tr>
+  </table>
+
+  <h3>Debugging (going inside a container)</h3>
+  <table class="cmd-table">
+    <tr><th>Command</th><th>What it does</th></tr>
+    <tr>
+      <td><code>docker compose exec api bash</code></td>
+      <td>Open a terminal shell inside the running API container. Type <code>exit</code> to leave.</td>
+    </tr>
+    <tr>
+      <td><code>docker compose exec postgres psql -U harvestguard</code></td>
+      <td>Open a PostgreSQL prompt directly in the database. Type <code>\q</code> to leave.</td>
+    </tr>
+  </table>
+
+  <h3>HarvestGuard-specific commands</h3>
+  <table class="cmd-table">
+    <tr><th>Command</th><th>What it does</th></tr>
+    <tr>
+      <td><code>curl -X POST http://localhost:8000/api/v1/admin/refresh</code></td>
+      <td>Trigger a fresh pull of WFP + satellite data for all 60 countries.</td>
+    </tr>
+    <tr>
+      <td><code>curl http://localhost:8000/health</code></td>
+      <td>Check if the API + database are connected and healthy.</td>
+    </tr>
+    <tr>
+      <td><code>curl http://localhost:8000/api/v1/alerts</code></td>
+      <td>See all active food security alerts in JSON.</td>
+    </tr>
+  </table>
+
+  <div class="callout tip">
+    <div class="callout-icon">💡</div>
+    <p><strong>Tip:</strong> Keep a terminal open running <code>docker compose logs -f api</code> while developing. You'll see every request, error, and data refresh in real time — much easier than guessing what's happening.</p>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 9 — THE FULL PICTURE
+═══════════════════════════════════════════════ -->
+<div class="page page-break">
+  <h2><span class="section-num">9</span>The full picture — what happens when you visit localhost:3000</h2>
+  <p class="lead">Let's trace one real request end-to-end: you click on Ethiopia on the map.</p>
+
+  <div style="background:#0f172a; border-radius:12px; padding:24px; margin:20px 0; font-family:'JetBrains Mono', monospace; font-size:12px; line-height:2.2;">
+    <div style="color:#64748b;">Step 1: Browser</div>
+    <div style="color:#60a5fa;">  → GET http://localhost:3000/api/v1/regions/ETH</div>
+    <br/>
+    <div style="color:#64748b;">Step 2: Nginx (frontend container, port 3000)</div>
+    <div style="color:#4ade80;">  → Sees "/api/" path → proxies to http://api:8000/api/v1/regions/ETH</div>
+    <div style="color:#64748b;">     (uses Docker's internal DNS to find the "api" container)</div>
+    <br/>
+    <div style="color:#64748b;">Step 3: FastAPI (api container, port 8000)</div>
+    <div style="color:#fbbf24;">  → Checks Redis cache: "do I have ETH data from last 10 min?"</div>
+    <div style="color:#fbbf24;">  → Cache miss → queries PostgreSQL: "SELECT * FROM countries WHERE iso='ETH'"</div>
+    <div style="color:#fbbf24;">  → Gets NDVI history, rainfall data, risk score from DB</div>
+    <div style="color:#fbbf24;">  → Returns JSON response</div>
+    <br/>
+    <div style="color:#64748b;">Step 4: You click "Get AI Assessment"</div>
+    <div style="color:#f472b6;">  → Browser opens EventSource to /api/v1/forecast/ETH (SSE stream)</div>
+    <div style="color:#f472b6;">  → FastAPI builds prompt with real NDVI + rainfall data</div>
+    <div style="color:#f472b6;">  → FastAPI calls http://host.docker.internal:11434/v1 (your Ollama)</div>
+    <div style="color:#f472b6;">  → Streams tokens back word by word → appears live in the UI</div>
+  </div>
+
+  <h3>Why each service is necessary</h3>
+  <table class="cmd-table">
+    <tr><th>Remove this service</th><th>What breaks</th></tr>
+    <tr><td><code>postgres</code></td><td>No data storage. Every restart starts blank. Countries, NDVI readings, alerts — all gone.</td></tr>
+    <tr><td><code>redis</code></td><td>API still works but hits external APIs (WFP, Open-Meteo) on every request — slow and rate-limited.</td></tr>
+    <tr><td><code>api</code></td><td>No data, no AI assessments, no alerts. The frontend shows an empty map.</td></tr>
+    <tr><td><code>frontend</code></td><td>No UI. The API still works — you'd interact with it via raw JSON at localhost:8000.</td></tr>
+    <tr><td>Ollama (on your PC)</td><td>AI assessments and chat return an error message. Everything else still works.</td></tr>
+  </table>
+
+  <div class="callout tip">
+    <div class="callout-icon">🎯</div>
+    <p><strong>The takeaway:</strong> Each Docker service is one focused piece of the puzzle. Docker Compose is the glue that starts them all, connects them on a private network, and manages their lifecycle with a single command.</p>
+  </div>
+
+  <hr class="divider"/>
+
+  <h3>Quick reference card</h3>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+    <div style="background:#f0fdf4; border-radius:8px; padding:14px;">
+      <div style="font-weight:700; color:#16a34a; margin-bottom:8px;">🚀 Start the app</div>
+      <code style="display:block;">ollama run qwen2.5:3b</code>
+      <code style="display:block; margin-top:6px;">docker compose up --build</code>
+      <code style="display:block; margin-top:6px;">curl -X POST localhost:8000/api/v1/admin/refresh</code>
+      <code style="display:block; margin-top:6px;">open http://localhost:3000</code>
+    </div>
+    <div style="background:#eff6ff; border-radius:8px; padding:14px;">
+      <div style="font-weight:700; color:#2563eb; margin-bottom:8px;">🔍 Debug issues</div>
+      <code style="display:block;">docker compose ps</code>
+      <code style="display:block; margin-top:6px;">docker compose logs -f api</code>
+      <code style="display:block; margin-top:6px;">curl localhost:8000/health</code>
+      <code style="display:block; margin-top:6px;">docker compose restart api</code>
+    </div>
+  </div>
+
+  <div class="footer">
+    HarvestGuard — AI-Powered Food Insecurity Early Warning System &nbsp;·&nbsp;
+    Docker Guide &nbsp;·&nbsp; 2026
+  </div>
+</div>
+
+</body>
+</html>
