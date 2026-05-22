@@ -11,7 +11,12 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str = "redis://localhost:6379/0"
 
-    # Anthropic
+    # AI provider: "local" for dev (Ollama/LM Studio), "anthropic" for production
+    llm_provider: str = "local"
+    local_llm_base_url: str = "http://localhost:11434/v1"   # Ollama default
+    local_llm_model: str = "llama3.1"                       # model name for local LLM
+
+    # Anthropic (only needed when llm_provider="anthropic")
     anthropic_api_key: str = ""
 
     # NASA Earthdata (free at urs.earthaccess.nasa.gov)
