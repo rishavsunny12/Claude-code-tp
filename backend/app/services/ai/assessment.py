@@ -22,7 +22,10 @@ organizations to allocate resources and trigger responses.
 
 Write concise, expert-level assessments. Be specific and data-driven — reference the actual numbers.
 Do not use generic phrases like "the situation is concerning." Explain what the satellite data means
-in practical terms for farmers and communities. Use plain language accessible to non-specialists."""
+in practical terms for farmers and communities. Use plain language accessible to non-specialists.
+
+Never include section headings or labels in your output (e.g. do not write "Paragraph 1",
+"Current Situation", "Key Drivers", or markdown headings). Write flowing prose only."""
 
 
 async def stream_risk_assessment(
@@ -66,15 +69,19 @@ async def stream_risk_assessment(
 REAL SATELLITE AND FIELD DATA:
 {data_section}
 
-Write a structured 3-paragraph assessment:
+Write exactly 3 paragraphs of plain prose with no titles, labels, or headings.
 
-**Paragraph 1 — Current Situation**: What do these specific numbers tell us about conditions on the ground right now? Interpret the NDVI and rainfall values in terms of what farmers and communities are experiencing.
+Paragraph 1: What do these specific numbers tell us about conditions on the ground right now?
+Interpret the NDVI and rainfall values in terms of what farmers and communities are experiencing.
 
-**Paragraph 2 — Key Drivers**: What are the primary factors driving this risk level? Be specific about which indicators are most alarming and why. If data is limited, say so.
+Paragraph 2: What are the primary factors driving this risk level? Be specific about which
+indicators are most alarming and why. If data is limited, say so.
 
-**Paragraph 3 — 30-60 Day Outlook**: Based on current trends, what is the most likely trajectory? What specific interventions or actions are recommended for NGOs, governments, or communities?
+Paragraph 3: Based on current trends, what is the most likely trajectory over the next 30-60 days?
+What specific interventions are recommended for NGOs, governments, or communities?
 
-Keep each paragraph to 3-4 sentences. Be direct and actionable."""
+Keep each paragraph to 3-4 sentences. Separate paragraphs with a blank line. Do not repeat
+the words "Paragraph", "Current Situation", "Key Drivers", or "Outlook" in your response."""
 
     async for chunk in stream_text(
         messages=[{"role": "user", "content": prompt}],

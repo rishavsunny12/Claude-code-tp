@@ -9,17 +9,22 @@ interface Props {
   onSelectRegion: (iso: string) => void
 }
 
-// Property-based styling — scores embedded by GET /api/v1/map/geojson.
+// null/missing risk_score → grey; real scores use IPC band colors.
+// Note: do not use to-number here — MapLibre converts null to 0, which would show green.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const FILL_COLOR: any = [
-  'step',
-  ['coalesce', ['to-number', ['get', 'risk_score']], -1],
-  '#374151',   // no data
-  0, '#00AC46', // Phase 1 Minimal
-  0.20, '#CADD00', // Phase 2 Stressed
-  0.40, '#E7B000', // Phase 3 Crisis
-  0.60, '#E35C00', // Phase 4 Emergency
-  0.80, '#C80000', // Phase 5 Catastrophe
+  'case',
+  ['any', ['!', ['has', 'risk_score']], ['==', ['get', 'risk_score'], null]],
+  '#374151', // no data
+  [
+    'step',
+    ['get', 'risk_score'],
+    '#00AC46', // Phase 1 Minimal (< 0.20)
+    0.20, '#CADD00', // Phase 2 Stressed
+    0.40, '#E7B000', // Phase 3 Crisis
+    0.60, '#E35C00', // Phase 4 Emergency
+    0.80, '#C80000', // Phase 5 Catastrophe
+  ],
 ]
 
 export function WorldMap({ regions, selectedIso, onSelectRegion }: Props) {

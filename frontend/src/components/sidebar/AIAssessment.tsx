@@ -7,6 +7,18 @@ interface Props {
   iso: string
 }
 
+/** Strip LLM section labels that sometimes leak into streamed text. */
+function sanitizeAssessment(text: string): string {
+  return text
+    .replace(
+      /\*{0,2}\s*Paragraph\s*\d+\s*[—–-]\s*[^*\n:]+:?\s*\*{0,2}\s*/gi,
+      '\n\n',
+    )
+    .replace(/Paragraph\s*\d+\s*[—–-]\s*[^:]+:\s*/gi, '\n\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 export function AIAssessment({ iso }: Props) {
   const [text, setText] = useState('')
   const [streaming, setStreaming] = useState(false)
@@ -57,7 +69,7 @@ export function AIAssessment({ iso }: Props) {
               strong: ({ children }) => <strong className="text-white font-semibold">{children}</strong>,
             }}
           >
-            {text}
+            {sanitizeAssessment(text)}
           </ReactMarkdown>
         ) : streaming ? (
           <div className="flex items-center gap-2 text-slate-500">
