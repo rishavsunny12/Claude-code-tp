@@ -114,6 +114,13 @@ For higher-accuracy NDVI from actual MODIS raster data:
 
 Without credentials, NDVI is estimated from Open-Meteo weather correlates (still useful as a proxy).
 
+## Application live screenshots
+
+<img width="1893" height="898" alt="Screenshot 2026-05-26 131745" src="https://github.com/user-attachments/assets/5294a426-66c6-49a9-9509-8517649e2b0f" />
+<img width="1175" height="892" alt="Screenshot 2026-05-26 131856" src="https://github.com/user-attachments/assets/370125c9-ee5f-4fc4-ba19-8dc4efb15c96" />
+<img width="897" height="892" alt="Screenshot 2026-05-26 131935" src="https://github.com/user-attachments/assets/23a6e1b2-793b-4e51-bb89-f264f63d8f90" />
+
+
 ## Contributing
 
 This project is designed to serve humanitarian organizations, governments, and researchers. Contributions welcome — especially:
@@ -121,13 +128,6 @@ This project is designed to serve humanitarian organizations, governments, and r
 - Sub-national resolution (admin level 1/2)
 - SMS/WhatsApp alert delivery for rural communities
 - Multi-language support
-
-<img width="1893" height="898" alt="Screenshot 2026-05-26 131745" src="https://github.com/user-attachments/assets/5294a426-66c6-49a9-9509-8517649e2b0f" />
-<img width="1175" height="892" alt="Screenshot 2026-05-26 131856" src="https://github.com/user-attachments/assets/370125c9-ee5f-4fc4-ba19-8dc4efb15c96" />
-<img width="897" height="892" alt="Screenshot 2026-05-26 131935" src="https://github.com/user-attachments/assets/23a6e1b2-793b-4e51-bb89-f264f63d8f90" />
-
-
-
 
 ## License
 
