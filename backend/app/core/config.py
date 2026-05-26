@@ -13,15 +13,15 @@ class Settings(BaseSettings):
 
     # AI provider: "local" for dev (Ollama/LM Studio), "anthropic" for production
     llm_provider: str = "local"
-    local_llm_base_url: str = "http://host.docker.internal:11434/v1"   # Ollama default
-    local_llm_model: str = "qwen2.5:3b"                       # model name for local LLM
+    local_llm_base_url: str = ""   # Ollama default
+    local_llm_model: str = ""                       # model name for local LLM
 
     # Anthropic (only needed when llm_provider="anthropic")
     anthropic_api_key: str = ""
 
     # NASA Earthdata (free at urs.earthaccess.nasa.gov)
-    earthdata_username: str = "rishavsunny12"
-    earthdata_password: str = "Littlearyan_cr7"
+    earthdata_username: str = ""
+    earthdata_password: str = ""
 
     # App
     app_name: str = "HarvestGuard"
