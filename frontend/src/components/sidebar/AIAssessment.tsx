@@ -11,10 +11,14 @@ interface Props {
 function sanitizeAssessment(text: string): string {
   return text
     .replace(
-      /\*{0,2}\s*Paragraph\s*\d+\s*[—–-]\s*[^*\n:]+:?\s*\*{0,2}\s*/gi,
+      /(\*{0,2}\s*)?[Pp]aragraph\s*\d+\s*([—–-]\s*)?(Current Situation|Key Drivers|(?:30[- ]?60[- ]?Day\s+)?Outlook)?\s*:?\s*\*{0,2}/gi,
       '\n\n',
     )
-    .replace(/Paragraph\s*\d+\s*[—–-]\s*[^:]+:\s*/gi, '\n\n')
+    .replace(
+      /(\*{0,2}\s*)?(Current Situation|Key Drivers|(?:30[- ]?60[- ]?Day\s+)?Outlook)\s*:?\s*\*{0,2}/gi,
+      '',
+    )
+    .replace(/^[Pp]aragraph\s*\d+\s*:?\s*/gm, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 }

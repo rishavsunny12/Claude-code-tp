@@ -3,9 +3,31 @@ AI-powered country risk assessment generation.
 Builds prompts from real satellite and field data and streams Claude's analysis.
 """
 
+import re
 from datetime import date
 from typing import AsyncIterator, Optional
 from app.services.ai.claude_client import stream_text
+
+# Labels small local LLMs often echo from the prompt — stripped from streamed output.
+_SECTION_LABEL_RE = re.compile(
+    r"(\*{0,2}\s*)?"
+    r"[Pp]aragraph\s*\d+\s*"
+    r"([—–\-]\s*)?"
+    r"(Current Situation|Key Drivers|(?:30[- ]?60[- ]?Day\s+)?Outlook)?"
+    r"\s*:?\s*"
+    r"\*{0,2}",
+    re.IGNORECASE,
+)
+_STANDALONE_HEADING_RE = re.compile(
+    r"(\*{0,2}\s*)?(Current Situation|Key Drivers|(?:30[- ]?60[- ]?Day\s+)?Outlook)\s*:?\s*\*{0,2}",
+    re.IGNORECASE,
+)
+
+
+def _strip_section_labels(text: str) -> str:
+    text = _SECTION_LABEL_RE.sub("", text)
+    text = _STANDALONE_HEADING_RE.sub("", text)
+    return text
 
 IPC_DESCRIPTIONS = {
     1: "Minimal — most households can meet food needs without resorting to negative coping strategies",
@@ -69,23 +91,21 @@ async def stream_risk_assessment(
 REAL SATELLITE AND FIELD DATA:
 {data_section}
 
-Write exactly 3 paragraphs of plain prose with no titles, labels, or headings.
+Write exactly 3 short paragraphs of plain prose. Separate them with a single blank line only.
 
-Paragraph 1: What do these specific numbers tell us about conditions on the ground right now?
-Interpret the NDVI and rainfall values in terms of what farmers and communities are experiencing.
+Content order:
+1) What the numbers mean for farmers and communities right now (NDVI, rainfall).
+2) What is driving the risk level — which indicators matter most.
+3) Likely trajectory over 30-60 days and recommended actions for NGOs or governments.
 
-Paragraph 2: What are the primary factors driving this risk level? Be specific about which
-indicators are most alarming and why. If data is limited, say so.
-
-Paragraph 3: Based on current trends, what is the most likely trajectory over the next 30-60 days?
-What specific interventions are recommended for NGOs, governments, or communities?
-
-Keep each paragraph to 3-4 sentences. Separate paragraphs with a blank line. Do not repeat
-the words "Paragraph", "Current Situation", "Key Drivers", or "Outlook" in your response."""
+Rules: no headings, no numbered sections, no labels, no markdown headers, and never write
+the words Paragraph, Current Situation, Key Drivers, or Outlook."""
 
     async for chunk in stream_text(
         messages=[{"role": "user", "content": prompt}],
         system=SYSTEM_PROMPT,
         max_tokens=700,
     ):
-        yield chunk
+        cleaned = _strip_section_labels(chunk)
+        if cleaned:
+            yield cleaned
